@@ -1,39 +1,37 @@
-# typed: true
-
-require_relative "parsing_functions"
-require_relative "logger"
-require_relative "oscal_object"
-
 module Oscal
-  class Assembly
-    include Oscal::ParsingFunctions
-    include Oscal::ParsingLogger
-
-    # This Idiocy is to support ruby's busted type system.
-    class << self
-      def mandatory_tags
-        {}
-      end
-
-      def optional_tags
-        {}
-      end
-    end
+  class OscalObject
+    MANDATORY = {}.freeze
+    OPTIONAL = {}.freeze
+    @@attribute_handlers = {}
 
     def mandatory_attributes
-      self.class.mandatory_tags.keys
+      if self.class.constants.include?(:MANDATORY)
+        self.class::MANDATORY.keys
+      else
+        []
+      end
     end
 
     def allowed_attributes
-      mandatory_attributes + self.class.optional_tags.keys
+      if self.class.constants.include?(:OPTIONAL)
+        mandatory_attributes + self.class::OPTIONAL.keys
+      else
+        mandatory_attributes
+      end
     end
 
-    def get_type_of_attribute(attribute_name)
-      child_class = @tag_classes[attribute_name.to_sym]
-      if child_class == nil
-        raise InvalidTypeError, "No type found for #{attribute_name}"
-      else
-        child_class
+    def register_attribute_handler
+      @@attribute_handler[self::ATTRIBUTE_ID] = self.class
+    end
+
+    def self_parse
+      # Create a local copy of the tag_classes class
+      if self.class.constants.include?(:MANDATORY)
+        create_tag_class_hash(MANDATORY)
+      end
+
+      if self.class.constants.include?(:OPTIONAL)
+        create_tag_class_hash(OPTIONAL)
       end
     end
 
@@ -50,47 +48,28 @@ module Oscal
       input.transform_keys { |key| str2sym(key) }
     end
 
-    # def create_tag_class_hash(input)
-    #   input.each_key do |tag|
-    #     @tag_classes[tag] = input[tag]
-    #   end
-    # end
+    def validate_input(input)
+      @logger.debug("Checking mandatory and optional values.")
+      missing_values?(mandatory_attributes, input)
+      extra_values?(allowed_attributes, input)
+    end
 
-    # def get_mandatory_optional_tags
-    #   # Create a local copy of the tag_classes class
-    #   if self.class.constants.include?(:MANDATORY)
-    #     create_tag_class_hash(MANDATORY)
-    #   end
-
-    #   if self.class.constants.include?(:OPTIONAL)
-    #     create_tag_class_hash(OPTIONAL)
-    #   end
-    # end
-
-    def missing_values?(provided)
-      @logger.debug("Checking mandatory values: #{mandatory_attributes}")
-      missing_values = mandatory_attributes -
-        provided.keys.intersection(mandatory_attributes)
+    def missing_values?(mandatory, provided)
+      @logger.debug("Checking mandatory values: #{mandatory}")
+      missing_values = mandatory - provided.keys.intersection(mandatory)
       if missing_values.length.positive?
         raise Oscal::InvalidTypeError,
               "Missing mandatory values: #{missing_values}"
       end
     end
 
-    def extra_values?(provided)
-      @logger.debug("Checking allowed values: #{allowed_attributes}")
-      extra_values = provided.keys -
-        provided.keys.intersection(allowed_attributes)
+    def extra_values?(allowed, provided)
+      @logger.debug("Checking allowed values: #{allowed}")
+      extra_values = provided.keys - provided.keys.intersection(allowed)
       if extra_values.length.positive?
         raise Oscal::InvalidTypeError,
               "Extra attributes provided #{extra_values}"
       end
-    end
-
-    def validate_input(input)
-      @logger.debug("Checking mandatory and optional values.")
-      missing_values?(input)
-      extra_values?(input)
     end
 
     def validate_content(key, value)
@@ -108,6 +87,10 @@ module Oscal
     def initialize(input)
       @logger = get_logger
       @logger.debug("#{self.class}.new called with #{input.to_s[0, 25]}")
+
+      super
+
+      self_parse
 
       # Raise Exception if input is not a hash
       sym_hash = check_and_normalize_input(input)

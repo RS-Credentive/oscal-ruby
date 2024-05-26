@@ -1,11 +1,11 @@
 require_relative("datatypes")
-require_relative("list")
+require_relative("arrays")
 
 module Oscal
-  module AssessmentResult
+  module AssessmentResultModule
     ATTRIBUTE_TYPE_HASH = {
       activities: ActivityArray,
-      activity_uuid: Uuid,
+      activity_uuid: UuidDataType,
       assessment_platforms: AssessmentPlatformArray,
       assessment_log: AssessmentLog,
       associated_activities: AssociatedActivityArray,
@@ -19,7 +19,7 @@ module Oscal
       entries: EntryArray,
       exclude_controls: ExcludeControlArray,
       exclude_objectives: ExcludeObjectiveArray,
-      href: UriReference,
+      href: UriReferenceDataType,
       import_ap: ImportAP,
       include_all: IncludeAll,
       include_controls: IncludeControlArray,
@@ -45,18 +45,18 @@ module Oscal
       statement_ids: StatementIdArray,
       steps: StepArray,
       subjects: SubjectArray,
-      subject_uuid: Uuid,
+      subject_uuid: UuidDataType,
       tasks: AssessmentTaskArray,
       title: MarkupMultilineDataType,
       type: TokenDataType,
       types: TypeArray,
-      uuid: Uuid,
+      uuid: UuidDataType,
       users: UserArray,
     }.freeze
   end
 
   def self.get_type_of_attribute(attribute_name)
-    klass = Oscal::AssessmentResult::ATTRIBUTE_TYPE_HASH[attribute_name.to_sym]
+    klass = Oscal::AssessmentResultModule::ATTRIBUTE_TYPE_HASH[attribute_name.to_sym]
     if klass == nil
       raise InvalidTypeError, "No type found for #{attribute_name}"
     else
